@@ -2,6 +2,8 @@ from io import StringIO
 import boto3
 import pandas as pd
 from aws_constants import AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+from prophet import Prophet
+from prophet.plot import plot_plotly, plot_components_plotly
 
 
 def get_data(access_key_id: str, secret_access_key: str):
@@ -21,5 +23,29 @@ def get_data(access_key_id: str, secret_access_key: str):
     return weather_df.loc[weather_df.country == 'Belarus']
 
 
+def transform_data(data):
+    forecast_data = data.rename(columns={"last_updated": "ds",
+                                         "temperature_celsius": "y"})
+    forecast_data['ds'] = pd.to_datetime(forecast_data['ds']).dt.date
+    forecast_data['ds'] = pd.to_datetime(forecast_data['ds'])
+    forecast_data = forecast_data[['ds', 'y']]
+    forecast_data.reset_index(inplace=True, drop=True)
+    print(forecast_data.dtypes)
+    print(forecast_data)
+    return forecast_data
+
+
+def make_forecast(forecast_data):
+    model = Prophet()
+    model.fit(forecast_data)
+    forecasts = model.make_future_dataframe(periods=30)
+    predictions = model.predict(forecasts)
+    plot_plotly(model, predictions)
+    return predictions
+
+
 belarus_weather_df = get_data(AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
-print(belarus_weather_df.head(15))
+# print(belarus_weather_df.head(15))
+transformed_data = transform_data(belarus_weather_df)
+predictions_forecast = make_forecast(transformed_data)
+print(predictions_forecast)
